@@ -1,0 +1,36 @@
+---
+- name: Provision a Swarm v2 master on AWS
+  hosts: localhost
+  connection: local
+  gather_facts: False
+
+  tasks:
+    - name: Create a keypair
+      ec2_key: name=swarm region=us-east-1
+      register: keypair
+
+    - name: Write the key to a local file
+      copy:
+        dest: "~/.aws/keys/swarm.pem"
+        content: "{{ keypair.key.private_key }}"
+        mode: 0600
+      when: keypair.changed
+
+    - name: Create a security group
+      ec2_group:
+        name: dockermachine
+        description: Allow docker, machine and swarm port
+        region: "us-east-1"
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 2376
+            to_port: 2376
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 3376
+            to_port: 3376
+            cidr_ip: 0.0.0.0/0

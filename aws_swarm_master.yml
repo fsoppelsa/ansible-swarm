@@ -1,0 +1,56 @@
+---
+- name: Provision a Swarm v2 master on AWS
+  hosts: localhost
+  connection: local
+  gather_facts: False
+
+# ansible 2.2
+# dm
+# pip install boto
+# export AWS_ACCESS_KEY
+# export AWS_SECRET_KEY
+
+  tasks:
+    - name: Find the latest Ubuntu Wily image
+      ec2_ami_find:
+        region: us-east-1
+        name: "ubuntu/images/hvm/ubuntu-wily-15.10-amd64-server-*"
+        sort: name
+        sort_order: descending
+        sort_end: 1
+      register: ami_find
+
+    - name: Create the EC2 instance
+      ec2:
+        image: "{{ ami_find.results[0].ami_id }}"
+        region: us-east-1
+        instance_type: t2.micro
+        key_name: swarm
+        group: dockermachine
+        wait: yes
+      register: ec2
+
+    - name: Provision a Docker Host with machine
+      shell: >
+        docker-machine create -d generic \
+        --generic-ip-address "{{ item.public_ip }}" \
+        --generic-ssh-key ~/.aws/keys/swarm.pem \
+        --generic-ssh-user "ubuntu" \
+        swarm-master-"{{ item.public_dns_name }}"
+      with_items: "{{ ec2.instances }}"
+
+    - shell: >
+        eval $(docker-machine env swarm-master-"{{ item.public_dns_name }}")
+        echo $DOCKER_TLS_VERIFY &&
+        echo $DOCKER_HOST &&
+        echo $DOCKER_CERT_PATH &&
+        echo $DOCKER_MACHINE_NAME
+      with_items: "{{ ec2.instances }}"
+      register: master
+
+    - set_fact:
+        dhost: "{{ master.stdout_lines[0] }}"
+        dcert: "{{ master.stdout_lines[1] }}"
+        dmach: "{{ master.stdout_lines[2] }}"
+
+        # - debug: msg="{{ dhost }}" "{{ dcert }}" "{{ dmach }}"
