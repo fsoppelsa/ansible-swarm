@@ -19,6 +19,7 @@ For example (OpenStack)
 * export OS_AUTH_URL
 
 Steps:
+
 1. Compile library/docker_machine.go
 
 2. Setup env (ex. `ansible-playbook *setup.yml`)
