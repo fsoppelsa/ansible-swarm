@@ -9,9 +9,18 @@
       ec2_key: name=swarm region=us-east-1
       register: keypair
 
+    - file: path="~/.aws/keys" state=directory
+
     - name: Write the key to a local file
       copy:
         dest: "~/.aws/keys/swarm.pem"
+        content: "{{ keypair.key.private_key }}"
+        mode: 0600
+      when: keypair.changed
+
+    - name: Create the .pub key (necessary to Machine)
+      copy:
+        dest: "~/.aws/keys/swarm.pem.pub"
         content: "{{ keypair.key.private_key }}"
         mode: 0600
       when: keypair.changed
@@ -33,4 +42,7 @@
           - proto: tcp
             from_port: 3376
             to_port: 3376
+            cidr_ip: 0.0.0.0/0
+        rules_egress:
+          - proto: all
             cidr_ip: 0.0.0.0/0
