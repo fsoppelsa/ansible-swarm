@@ -44,19 +44,19 @@ import (
 )
 
 /*
-	Json utilities
+  Json utilities
 
-	Playbook variables
-	Sample:
+  Playbook variables
+  Sample:
 
-    - name: Create a Machine
-	  docker_machine:
-	    provider: "generic"
-	    name: "node0"
-	    ip_address: "192.168.1.1"
-	    ssh_key: "~/.conf/keys/nodes.pem"
-	    ssh_user: "ubuntu"
-	  register: machine_result
+  - name: Create a Machine
+    docker_machine:
+      provider: "generic"
+      name: "node0"
+      ip_address: "192.168.1.1"
+      ssh_key: "~/.conf/keys/nodes.pem"
+      ssh_user: "ubuntu"
+    register: machine_result
 */
 type ModuleArgs struct {
 	Provider   string
