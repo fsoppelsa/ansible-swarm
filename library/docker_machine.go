@@ -37,8 +37,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
+	"github.com/fsoppelsa/ansible"
 	"os"
 	"os/exec"
 )
@@ -66,39 +65,6 @@ type ModuleArgs struct {
 	Ssh_key    string
 }
 
-// Format response
-type Response struct {
-	Msg        string `json:"msg"`
-	ConnString string `json:"connstring"`
-	Cmd        string `json:"command"`
-	Changed    bool   `json:"changed"`
-	Failed     bool   `json:"failed"`
-}
-
-func ExitJson(responseBody Response) {
-	returnResponse(responseBody)
-}
-
-func FailJson(responseBody Response) {
-	responseBody.Failed = true
-	returnResponse(responseBody)
-}
-
-func returnResponse(responseBody Response) {
-	var response []byte
-	var err error
-	response, err = json.Marshal(responseBody)
-	if err != nil {
-		response, _ = json.Marshal(Response{Msg: "Invalid response object"})
-	}
-	fmt.Println(string(response))
-	if responseBody.Failed {
-		os.Exit(1)
-	} else {
-		os.Exit(0)
-	}
-}
-
 // Machine functions
 //
 
@@ -113,7 +79,7 @@ type Machine struct {
 
 // Create machine
 func createMachine(params *Machine) {
-	var response Response
+	var response ansible.Response
 	var cmdName = "docker-machine"
 	var cmdArgs string
 
@@ -121,42 +87,29 @@ func createMachine(params *Machine) {
 		cmdArgs = "create -d generic --generic-ip-address " + params.ip_address + " --generic-ssh-key " + params.ssh_key + " --generic-ssh-user " + params.ssh_user + " " + params.name
 	}
 
+	// TODO: Check that Machine does not exist already
 	if err := exec.Command("sh", "-c", cmdName+" "+cmdArgs).Run(); err != nil {
 		response.Msg = "Machine creation error"
 		response.Cmd = cmdName + " " + cmdArgs
-		FailJson(response)
+		ansible.FailJson(response)
 	}
 }
 
 func main() {
-	var response Response
-
-	if len(os.Args) != 2 {
-		response.Msg = "Not enough arguments provided!"
-		FailJson(response)
-	}
-
-	argsFile := os.Args[1]
-
-	text, err := ioutil.ReadFile(argsFile)
-	if err != nil {
-		response.Msg = "Could not read configuration file: " + argsFile
-		FailJson(response)
-	}
-
+	var response ansible.Response
 	var moduleArgs ModuleArgs
-	err = json.Unmarshal(text, &moduleArgs)
-
-	if err != nil {
-		response.Msg = "Configuration file not valid JSON: " + argsFile
-		FailJson(response)
-	}
-
 	var provider string = "generic"
 	var name string = ""
 	var ip_address = ""
 	var ssh_user = ""
 	var ssh_key = ""
+
+	text := ansible.ParseVariables(os.Args)
+
+	if err := json.Unmarshal(text, &moduleArgs); err != nil {
+		response.Msg = "Configuration file not valid JSON: " + os.Args[1]
+		ansible.FailJson(response)
+	}
 
 	if moduleArgs.Provider != "" {
 		provider = moduleArgs.Provider
@@ -178,5 +131,5 @@ func main() {
 	createMachine(&machine)
 
 	response.ConnString = "docker-machine create -d " + provider + " --generic-ip-address " + ip_address + " --generic--ssh-key " + ssh_key + " --generic-user " + ssh_user + " " + name
-	ExitJson(response)
+	ansible.ExitJson(response)
 }

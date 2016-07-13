@@ -31,21 +31,47 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Ansible docker_swarm module
 Requires Ansible 2.2+
+*/
 
-Sample snippet for playbooks:
+package main
+
+import (
+	"github.com/fsoppelsa/ansible"
+)
+
+/*
+  Sample:
 
     - name: Operate swarm nodes
-	  docker_swarm:
-	    role: "master"|"slave"
-	    operation: "init"|"join"|"update"|"rm"|"promote"|"demote"
-		detach: yes
+      docker_swarm:
+        role: "master"|"slave"
+        operation: "init"|"join"|"update"|"rm"|"promote"|"demote"
+        detach: yes
         docker_url: "192.168.1.1"
         use_tls: encrypt
         tls_ca_cert: "/path/ca.pem"
         tls_client_cert: "/path/cert.pem"
-		tls_client_key: "/path/key.pem"
-	  register: swarm_result
+        tls_client_key: "/path/key.pem"
+    register: swarm_result
 
 */
 
-package main
+type ModuleArgs struct {
+	Role          string
+	Operation     string
+	Detach        bool
+	DockerUrl     string
+	UseTls        string
+	TlsCaCert     string
+	TlsClientCert string
+	TlsClientKey  string
+}
+
+type Swarm struct {
+}
+
+type SwarmNode struct {
+}
+
+func main() {
+}
