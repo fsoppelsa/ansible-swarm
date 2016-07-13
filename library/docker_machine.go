@@ -31,17 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Ansible docker_machine module
 Requires Ansible 2.2+
-
-Sample snippet for playbooks:
-
-    - name: Create a Machine
-	  docker_machine:
-	    provider: "generic"
-	    name: "node0"
-	    ip_address: "192.168.1.1"
-	    ssh_key: "~/.conf/keys/nodes.pem"
-	    ssh_user: "ubuntu"
-	  register: machine_result
 */
 
 package main
@@ -54,10 +43,21 @@ import (
 	"os/exec"
 )
 
-// Json utilities
-//
+/*
+	Json utilities
 
-// Playbook variables
+	Playbook variables
+	Sample:
+
+    - name: Create a Machine
+	  docker_machine:
+	    provider: "generic"
+	    name: "node0"
+	    ip_address: "192.168.1.1"
+	    ssh_key: "~/.conf/keys/nodes.pem"
+	    ssh_user: "ubuntu"
+	  register: machine_result
+*/
 type ModuleArgs struct {
 	Provider   string
 	Name       string
@@ -114,17 +114,16 @@ type Machine struct {
 // Create machine
 func createMachine(params *Machine) {
 	var response Response
-	var command string
+	var cmdName = "docker-machine"
+	var cmdArgs string
 
 	if params.provider == "generic" {
-		command = "docker-machine create -d generic --generic-ip-address " + params.ip_address + " --generic-ssh-key " + params.ssh_key + " --generic-ssh-user " + params.ssh_user + " " + params.name
+		cmdArgs = "create -d generic --generic-ip-address " + params.ip_address + " --generic-ssh-key " + params.ssh_key + " --generic-ssh-user " + params.ssh_user + " " + params.name
 	}
 
-	cmd := exec.Command(command)
-	err := cmd.Run()
-	if err != nil {
+	if err := exec.Command("sh", "-c", cmdName+" "+cmdArgs).Run(); err != nil {
 		response.Msg = "Machine creation error"
-		response.Cmd = command
+		response.Cmd = cmdName + " " + cmdArgs
 		FailJson(response)
 	}
 }
