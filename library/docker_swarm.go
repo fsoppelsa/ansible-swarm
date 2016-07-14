@@ -31,9 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Ansible docker_swarm module
 Requires Ansible 2.2+
-go get github.com/docker/engine-api/types/swarm
-go get github.com/docker/engine-api/client
-go get github.com/foppelsa/ansible
 */
 
 package main
@@ -55,13 +52,11 @@ import (
 
     - name: Operate swarm clusters and nodes
       docker_swarm:
-        role: "master"|"slave"
+        role: "manager"|"slave"
         operation: "init"|"join"|"leave"|"update"|"promote"|"demote"
-        detach: yes
-		docker_url: "tcp://192.168.99.101:2376"
-		join_url: ["tcp://192.168.99.100:3376"] # array of strings
-        use_tls: encrypt
-		tls_path: "/path/to/"
+        docker_url: "tcp://192.168.99.101:2376"
+        join_url: ["tcp://192.168.99.100:3376"] # array of strings
+        tls_path: "/path/to/"
       register: swarm_result
 
 */
@@ -69,10 +64,8 @@ import (
 type ModuleArgs struct {
 	Role       string
 	Operation  string
-	Detach     bool
 	Docker_url string
 	Join_url   []string
-	Use_tls    string
 	Tls_path   string
 }
 
@@ -116,36 +109,40 @@ func initSwarm(cli *client.Client) string {
 	swarm, err := cli.SwarmInit(context.Background(), swarm.InitRequest{
 		ListenAddr:      "0.0.0.0:2377",
 		ForceNewCluster: true,
-		/*
-			XXX
-			Spec: {
-				AcceptancePolicy: []Policies{
-					Policy: {
+		Spec: {
+			AcceptancePolicy: {
+				Policies: []Policy{
+					Policy{
 						Role:       "manager",
+						Autoaccept: true,
+					},
+					Policy{
+						Role:       "slave",
 						Autoaccept: true,
 					},
 				},
 			},
-		*/
+		},
 	})
 	if err != nil {
 		response.Msg = "ERROR: Swarm init: " + swarm
 		ansible.FailJson(response)
 	}
-	return swarm
+	return "ok init " + swarm
 }
 
-func joinCluster(cli *client.Client, addr []string, role string) string {
+func joinSwarm(cli *client.Client, addr []string, role string) string {
 	var response ansible.Response
 	var isManager bool
 
-	if role == "master" {
+	if role == "manager" {
 		isManager = true
 	} else {
 		isManager = false
 	}
 
 	err := cli.SwarmJoin(context.Background(), swarm.JoinRequest{
+		ListenAddr:  "0.0.0.0:2377",
 		RemoteAddrs: addr,
 		Manager:     isManager,
 	})
@@ -154,23 +151,31 @@ func joinCluster(cli *client.Client, addr []string, role string) string {
 		ansible.FailJson(response)
 	}
 
-	return "ok"
+	return "ok join"
 }
 
-func leaveCluster(cli *client.Client) error {
-	return nil
+func leaveSwarm(cli *client.Client, force bool) string {
+	var response ansible.Response
+
+	err := cli.SwarmLeave(context.Background(), force)
+	if err != nil {
+		response.Msg = "ERROR: Swarm leave"
+		ansible.FailJson(response)
+	}
+
+	return "ok leave"
 }
 
-func promoteNode(cli *client.Client) error {
-	return nil
+func promoteNode(cli *client.Client) string {
+	return "ok promote"
 }
 
-func demoteNode(cli *client.Client) error {
-	return nil
+func demoteNode(cli *client.Client) string {
+	return "ok demote"
 }
 
-func updateSwarm(cli *client.Client) error {
-	return nil
+func updateSwarm(cli *client.Client) string {
+	return "ok update"
 }
 
 func main() {
@@ -186,26 +191,25 @@ func main() {
 
 	cli := connectEngine(&moduleArgs)
 
-	if moduleArgs.Role == "master" {
-		// Init cluster
-		if moduleArgs.Operation == "init" {
-			swarm := initSwarm(cli)
-			response.Msg = swarm
-			ansible.ExitJson(response)
-		}
-		// Join as a master
-		if moduleArgs.Operation == "join" {
-			swarm := joinCluster(cli, moduleArgs.Join_url, "master")
-			response.Msg = swarm
-			ansible.ExitJson(response)
-		}
-	} else if moduleArgs.Role == "slave" {
-		// Join as a slave
-		if moduleArgs.Operation == "join" {
-			swarm := joinCluster(cli, moduleArgs.Join_url, "node")
-			response.Msg = swarm
-			ansible.ExitJson(response)
-		}
+	// Operations implementation
+	// Init cluster
+	if moduleArgs.Role == "manager" && moduleArgs.Operation == "init" {
+		swarm := initSwarm(cli)
+		response.Msg = swarm
+		ansible.ExitJson(response)
+	}
 
+	// Join a node
+	if moduleArgs.Operation == "join" {
+		swarm := joinSwarm(cli, moduleArgs.Join_url, moduleArgs.Role)
+		response.Msg = swarm
+		ansible.ExitJson(response)
+	}
+
+	// A node leaves
+	if moduleArgs.Operation == "leave" {
+		swarm := leaveSwarm(cli, true)
+		response.Msg = swarm
+		ansible.ExitJson(response)
 	}
 }
