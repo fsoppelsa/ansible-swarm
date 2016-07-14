@@ -31,47 +31,184 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Ansible docker_swarm module
 Requires Ansible 2.2+
+go get github.com/docker/engine-api/types/swarm
+go get github.com/docker/engine-api/client
+go get github.com/foppelsa/ansible
 */
 
 package main
 
 import (
+	"encoding/json"
+	"github.com/docker/engine-api/client"
+	"github.com/docker/engine-api/types/swarm"
+	"github.com/docker/go-connections/tlsconfig"
 	"github.com/fsoppelsa/ansible"
+	"golang.org/x/net/context"
+	"net/http"
+	"os"
+	"path/filepath"
 )
 
 /*
   Sample:
 
-    - name: Operate swarm nodes
+    - name: Operate swarm clusters and nodes
       docker_swarm:
         role: "master"|"slave"
-        operation: "init"|"join"|"update"|"rm"|"promote"|"demote"
+        operation: "init"|"join"|"leave"|"update"|"promote"|"demote"
         detach: yes
-        docker_url: "192.168.1.1"
+		docker_url: "tcp://192.168.99.101:2376"
+		join_url: ["tcp://192.168.99.100:3376"] # array of strings
         use_tls: encrypt
-        tls_ca_cert: "/path/ca.pem"
-        tls_client_cert: "/path/cert.pem"
-        tls_client_key: "/path/key.pem"
-    register: swarm_result
+		tls_path: "/path/to/"
+      register: swarm_result
 
 */
 
 type ModuleArgs struct {
-	Role          string
-	Operation     string
-	Detach        bool
-	DockerUrl     string
-	UseTls        string
-	TlsCaCert     string
-	TlsClientCert string
-	TlsClientKey  string
+	Role       string
+	Operation  string
+	Detach     bool
+	Docker_url string
+	Join_url   []string
+	Use_tls    string
+	Tls_path   string
 }
 
-type Swarm struct {
+func connectEngine(args *ModuleArgs) *client.Client {
+	var c *http.Client
+	var response ansible.Response
+
+	securityOptions := tlsconfig.Options{
+		CAFile:             filepath.Join(args.Tls_path, "ca.pem"),
+		CertFile:           filepath.Join(args.Tls_path, "cert.pem"),
+		KeyFile:            filepath.Join(args.Tls_path, "key.pem"),
+		InsecureSkipVerify: true,
+	}
+
+	tlsc, err := tlsconfig.Client(securityOptions)
+	if err != nil {
+		response.Msg = "TLS configuration error: " + args.Tls_path
+		ansible.FailJson(response)
+	}
+
+	c = &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsc,
+		},
+	}
+
+	defaultHeaders := map[string]string{"User-Agent": "engine-api-cli-1.0"}
+	// v1.24 = engine 1.12
+	cli, err := client.NewClient(args.Docker_url, "v1.24", c, defaultHeaders)
+	if err != nil {
+		response.Msg = "Impossible to connect to Docker Engine: " + args.Docker_url
+		ansible.FailJson(response)
+	}
+
+	return cli
 }
 
-type SwarmNode struct {
+func initSwarm(cli *client.Client) string {
+	var response ansible.Response
+
+	swarm, err := cli.SwarmInit(context.Background(), swarm.InitRequest{
+		ListenAddr:      "0.0.0.0:2377",
+		ForceNewCluster: true,
+		/*
+			XXX
+			Spec: {
+				AcceptancePolicy: []Policies{
+					Policy: {
+						Role:       "manager",
+						Autoaccept: true,
+					},
+				},
+			},
+		*/
+	})
+	if err != nil {
+		response.Msg = "ERROR: Swarm init: " + swarm
+		ansible.FailJson(response)
+	}
+	return swarm
+}
+
+func joinCluster(cli *client.Client, addr []string, role string) string {
+	var response ansible.Response
+
+	if role == "master" {
+		err := cli.SwarmJoin(context.Background(), swarm.JoinRequest{
+			RemoteAddrs: addr,
+			Manager:     true,
+		})
+		if err != nil {
+			response.Msg = "ERROR: Swarm join: manager"
+			ansible.FailJson(response)
+		}
+	} else if role == "node" {
+		err := cli.SwarmJoin(context.Background(), swarm.JoinRequest{
+			RemoteAddrs: addr,
+			Manager:     false,
+		})
+		if err != nil {
+			response.Msg = "ERROR: Swarm join: node"
+			ansible.FailJson(response)
+		}
+	}
+	return "ok"
+}
+
+func leaveCluster(cli *client.Client) error {
+
+}
+
+func promoteNode(cli *client.Client) error {
+
+}
+
+func demoteNode(cli *client.Client) error {
+
+}
+
+func updateSwarm(cli *client.Client) error {
+
 }
 
 func main() {
+	var response ansible.Response
+	var moduleArgs ModuleArgs
+
+	text := ansible.ParseVariables(os.Args)
+
+	if err := json.Unmarshal(text, &moduleArgs); err != nil {
+		response.Msg = "Configuration file not valid JSON: " + os.Args[1]
+		ansible.FailJson(response)
+	}
+
+	cli := connectEngine(&moduleArgs)
+
+	if moduleArgs.Role == "master" {
+		// Init cluster
+		if moduleArgs.Operation == "init" {
+			swarm := initSwarm(cli)
+			response.Msg = swarm
+			ansible.ExitJson(response)
+		}
+		// Join as a master
+		if moduleArgs.Operation == "join" {
+			swarm := joinCluster(cli, moduleArgs.Join_url, "master")
+			response.Msg = swarm
+			ansible.ExitJson(response)
+		}
+	} else if moduleArgs.Role == "slave" {
+		// Join as a slave
+		if moduleArgs.Operation == "join" {
+			swarm := joinCluster(cli, moduleArgs.Join_url, "node")
+			response.Msg = swarm
+			ansible.ExitJson(response)
+		}
+
+	}
 }
