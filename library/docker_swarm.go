@@ -158,19 +158,19 @@ func joinCluster(cli *client.Client, addr []string, role string) string {
 }
 
 func leaveCluster(cli *client.Client) error {
-
+	return nil
 }
 
 func promoteNode(cli *client.Client) error {
-
+	return nil
 }
 
 func demoteNode(cli *client.Client) error {
-
+	return nil
 }
 
 func updateSwarm(cli *client.Client) error {
-
+	return nil
 }
 
 func main() {
