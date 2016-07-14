@@ -137,26 +137,23 @@ func initSwarm(cli *client.Client) string {
 
 func joinCluster(cli *client.Client, addr []string, role string) string {
 	var response ansible.Response
+	var isManager bool
 
 	if role == "master" {
-		err := cli.SwarmJoin(context.Background(), swarm.JoinRequest{
-			RemoteAddrs: addr,
-			Manager:     true,
-		})
-		if err != nil {
-			response.Msg = "ERROR: Swarm join: manager"
-			ansible.FailJson(response)
-		}
-	} else if role == "node" {
-		err := cli.SwarmJoin(context.Background(), swarm.JoinRequest{
-			RemoteAddrs: addr,
-			Manager:     false,
-		})
-		if err != nil {
-			response.Msg = "ERROR: Swarm join: node"
-			ansible.FailJson(response)
-		}
+		isManager = true
+	} else {
+		isManager = false
 	}
+
+	err := cli.SwarmJoin(context.Background(), swarm.JoinRequest{
+		RemoteAddrs: addr,
+		Manager:     isManager,
+	})
+	if err != nil {
+		response.Msg = "ERROR: Swarm join: " + role
+		ansible.FailJson(response)
+	}
+
 	return "ok"
 }
 
