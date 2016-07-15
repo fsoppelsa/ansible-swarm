@@ -56,7 +56,7 @@ import (
         operation: "init"|"join"|"leave"|"update"|"promote"|"demote"
         docker_url: "tcp://192.168.99.101:2376"
         join_url: ["tcp://192.168.99.100:3376"] # array of strings
-		secret: "1gar34igi73kird0eml45pm5r"
+        secret: "1gar34igi73kird0eml45pm5r"
         tls_path: "/path/to/"
       register: swarm_result
 

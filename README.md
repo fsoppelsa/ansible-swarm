@@ -1,7 +1,12 @@
 ansible-swarm
 =============
+*Very prototype still*.
 
-!!! WIP
+In **library**, Ansible modules :
+* `docker_machine.go` - <a href="https://github.com/docker/machine">machine</a>
+* `docker_swarm.go` - <a href="https://github.com/docker/swarm">swarm (mode)</a>
+
+In **playbooks/** some samples to instantiate on AWS
 
 Software requirements
 * Ansible 2.2+
@@ -20,7 +25,7 @@ For example (OpenStack)
 
 Steps:
 
-1. Compile library/docker_machine.go
+1. Compile `library/docker_machine.go` and `library/docker_swarm.go`
 
 2. Setup env (ex. `ansible-playbook *setup.yml`)
 
