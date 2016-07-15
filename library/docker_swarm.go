@@ -52,7 +52,7 @@ import (
 
     - name: Operate swarm clusters and nodes
       docker_swarm:
-        role: "manager"|"slave"
+        role: "manager"|"worker"
         operation: "init"|"join"|"leave"|"update"|"promote"|"demote"
         docker_url: "tcp://192.168.99.101:2376"
         join_url: ["tcp://192.168.99.100:3376"] # array of strings
@@ -139,7 +139,7 @@ func joinSwarm(cli *client.Client, addr []string, role string, secret string) st
 
 	if role == "manager" {
 		isManager = true
-	} else {
+	} else { // worker
 		isManager = false
 	}
 
