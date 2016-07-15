@@ -56,6 +56,7 @@ import (
         operation: "init"|"join"|"leave"|"update"|"promote"|"demote"
         docker_url: "tcp://192.168.99.101:2376"
         join_url: ["tcp://192.168.99.100:3376"] # array of strings
+		secret: "1gar34igi73kird0eml45pm5r"
         tls_path: "/path/to/"
       register: swarm_result
 
@@ -66,6 +67,7 @@ type ModuleArgs struct {
 	Operation  string
 	Docker_url string
 	Join_url   []string
+	Secret     string
 	Tls_path   string
 }
 
@@ -109,15 +111,15 @@ func initSwarm(cli *client.Client) string {
 	swarm, err := cli.SwarmInit(context.Background(), swarm.InitRequest{
 		ListenAddr:      "0.0.0.0:2377",
 		ForceNewCluster: true,
-		Spec: {
-			AcceptancePolicy: {
-				Policies: []Policy{
-					Policy{
-						Role:       "manager",
+		Spec: swarm.Spec{
+			AcceptancePolicy: swarm.AcceptancePolicy{
+				Policies: []swarm.Policy{
+					{
+						Role:       swarm.NodeRole("manager"),
 						Autoaccept: true,
 					},
-					Policy{
-						Role:       "slave",
+					{
+						Role:       swarm.NodeRole("worker"),
 						Autoaccept: true,
 					},
 				},
@@ -131,7 +133,7 @@ func initSwarm(cli *client.Client) string {
 	return "ok init " + swarm
 }
 
-func joinSwarm(cli *client.Client, addr []string, role string) string {
+func joinSwarm(cli *client.Client, addr []string, role string, secret string) string {
 	var response ansible.Response
 	var isManager bool
 
@@ -145,6 +147,7 @@ func joinSwarm(cli *client.Client, addr []string, role string) string {
 		ListenAddr:  "0.0.0.0:2377",
 		RemoteAddrs: addr,
 		Manager:     isManager,
+		Secret:      secret,
 	})
 	if err != nil {
 		response.Msg = "ERROR: Swarm join: " + role
@@ -201,9 +204,15 @@ func main() {
 
 	// Join a node
 	if moduleArgs.Operation == "join" {
-		swarm := joinSwarm(cli, moduleArgs.Join_url, moduleArgs.Role)
-		response.Msg = swarm
-		ansible.ExitJson(response)
+		if moduleArgs.Secret != "" {
+			swarm := joinSwarm(cli, moduleArgs.Join_url, moduleArgs.Role, moduleArgs.Secret)
+			response.Msg = swarm
+			ansible.ExitJson(response)
+
+		} else {
+			response.Msg = "A valid secret token is required: "
+			ansible.FailJson(response)
+		}
 	}
 
 	// A node leaves

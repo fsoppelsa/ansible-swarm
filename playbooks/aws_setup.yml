@@ -1,5 +1,5 @@
 ---
-- name: Provision a Swarm v2 master on AWS
+- name: Setup AWS for Swarm
   hosts: localhost
   connection: local
   gather_facts: False
