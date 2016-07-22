@@ -1,6 +1,6 @@
 ansible-swarm
 =============
-*Very prototype still*.
+Tested on <a href="https://github.com/swarm2k/swarm2k">Swarm2k</a>, see in **swarm2k** dir.
 
 In **library**, Ansible modules :
 * `docker_machine.go` - <a href="https://github.com/docker/machine">machine</a>
@@ -27,8 +27,10 @@ Steps:
 
 1. Compile `library/docker_machine.go` and `library/docker_swarm.go`
 
-2. Setup env (ex. `ansible-playbook *setup.yml`)
+2. Setup env manually or through a play (i.e. `ansible-playbook *setup.yml`)
 
-3. Instanciate masters (ex `forloop: ansible-playbook -M library *swarm_master.yml`)
+3. Instanciate managers (i.e. `forloop: ansible-playbook -M library *swarm_manager.yml`)
 
-4. Instanciate slaves (ex `forloop: ansible-playbook -M library *swarm_slave.yml`)
+4. Instanciate workers (i.e. `forloop: ansible-playbook -M library *swarm_worker.yml`)
+
+5. Have fun
